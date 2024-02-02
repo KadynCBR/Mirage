@@ -22,6 +22,11 @@ class CameraInterface:
             return self.get_next_frame()
 
     def set_frame(self, frame_number: int = 0) -> None:
+        if frame_number > self.get_total_frames():
+            print(
+                f"ERROR[CameraInterface]: Attempting to set frame {frame_number}, when max frames for capture is {self.get_total_frames}."
+            )
+            exit(1)
         self.cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
 
     def get_next_frame(self) -> MatLike:

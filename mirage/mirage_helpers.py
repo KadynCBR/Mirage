@@ -82,13 +82,14 @@ def keypoint_to_image(image: MatLike, keypoints: MatLike, min_confidence: float 
                     thickness=2,
                 )
     for edge_k, edge_v in KeypointEdges.items():
-        drawn_image = cv2.line(
-            drawn_image,
-            k_coord(drawn_image, keypoints[edge_k[0]]),
-            k_coord(drawn_image, keypoints[edge_k[1]]),
-            edge_v,
-            3,
-        )
+        if KeypointMappings[edge_k[0]].display and KeypointMappings[edge_k[1]].display:
+            drawn_image = cv2.line(
+                drawn_image,
+                k_coord(drawn_image, keypoints[edge_k[0]]),
+                k_coord(drawn_image, keypoints[edge_k[1]]),
+                edge_v,
+                3,
+            )
     return drawn_image
 
 
