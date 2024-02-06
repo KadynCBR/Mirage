@@ -2,35 +2,8 @@ import cv2
 from cv2.typing import MatLike
 from argparse import ArgumentParser
 import numpy as np
-from dataclasses import dataclass
+from skeleton import KeypointMappings
 
-
-@dataclass
-class KeypointInformation:
-    name: str
-    color: tuple[int, int, int]
-    display: bool
-
-
-KeypointMappings = {
-    0: KeypointInformation("nose", (0, 0, 255), True),
-    1: KeypointInformation("lefteye", (0, 0, 255), False),
-    2: KeypointInformation("righteye", (0, 0, 255), False),
-    3: KeypointInformation("leftear", (0, 0, 255), False),
-    4: KeypointInformation("rightear", (0, 0, 255), False),
-    5: KeypointInformation("leftshoulder", (0, 255, 255), True),
-    6: KeypointInformation("rightshoulder", (0, 255, 255), True),
-    7: KeypointInformation("leftelbow", (0, 255, 255), True),
-    8: KeypointInformation("rightelbow", (0, 255, 255), True),
-    9: KeypointInformation("leftwrist", (100, 100, 255), True),
-    10: KeypointInformation("rightwrist", (100, 100, 255), True),
-    11: KeypointInformation("lefthip", (100, 0, 100), True),
-    12: KeypointInformation("righthip", (100, 0, 100), True),
-    13: KeypointInformation("leftknee", (100, 0, 100), True),
-    14: KeypointInformation("rightknee", (100, 0, 100), True),
-    15: KeypointInformation("leftankle", (100, 0, 100), True),
-    16: KeypointInformation("rightankle", (100, 0, 100), True),
-}
 
 KeypointEdges = {
     (0, 1): (50, 100, 200),

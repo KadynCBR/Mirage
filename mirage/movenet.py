@@ -13,7 +13,7 @@ class MovenetInterface(MLAbstractInterface):
         self.load_model()
 
     def preprocess(self, image: MatLike) -> MatLike:
-        image = tf.expand_dims(image, axis=0)
+        image = tf.expand_dims(image, axis=0)  # add 'batch' axis
         image = tf.cast(tf.image.resize_with_pad(image, 256, 256), dtype=tf.int32)
         return image
 
