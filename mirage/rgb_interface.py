@@ -39,3 +39,6 @@ class CameraInterface:
 
     def get_total_frames(self) -> int:
         return int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+    def get_frame_rate_per_second(self) -> float:
+        return self.cap.get(cv2.CAP_PROP_FPS)

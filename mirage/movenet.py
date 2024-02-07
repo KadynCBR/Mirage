@@ -1,7 +1,8 @@
 import tensorflow as tf
 import tensorflow_hub as hub
-from mirage_helpers import *
-from pose_extract_base import MLAbstractInterface
+from typing import Union
+from mirage.mirage_helpers import *
+from mirage.pose_extract_base import MLAbstractInterface
 
 gpu_devices = tf.config.experimental.list_physical_devices("GPU")
 for device in gpu_devices:
@@ -23,7 +24,17 @@ class MovenetInterface(MLAbstractInterface):
         )
         self.movenet = self.model.signatures["serving_default"]
 
-    def predict(self, image: MatLike) -> MatLike:
+    def predict(self, image: MatLike, crop_region: dict[str, int] | None = None) -> MatLike:
+        if crop_region is not None:
+            print(crop_region)
+            image = crop_image(
+                image,
+                int(crop_region["y_min"]),
+                int(crop_region["height"]),
+                int(crop_region["x_min"]),
+                int(crop_region["width"]),
+                0,
+            )
         image = self.preprocess(image)
         outputs = self.movenet(image)
         keypoints = outputs["output_0"][0][0].numpy()

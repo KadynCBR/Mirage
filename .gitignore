@@ -6,3 +6,6 @@ __pycache__/
 OUTPUT/
 
 *.ipynb_checkpoints
+mirage.egg-info/
+dist/
+build/

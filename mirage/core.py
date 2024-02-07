@@ -6,26 +6,35 @@ import os
 from cv2.typing import MatLike
 from argparse import ArgumentParser
 import numpy as np
-from mirage_helpers import *
-from pose_extract_base import MLAbstractInterface
-from movenet import MovenetInterface
-from rgb_interface import CameraInterface
+from mirage.mirage_helpers import *
+from mirage.pose_extract_base import MLAbstractInterface
+from mirage.movenet import MovenetInterface
+from mirage.rgb_interface import CameraInterface
+from mirage.skeleton import SkeletonDetection
+
+s_a = SkeletonDetection()
+s_b = SkeletonDetection()
 
 
 def process_and_viz_split(i_cam: CameraInterface, ml_interface: MLAbstractInterface) -> MatLike:
     img = i_cam.get_next_frame()
     img_a, img_b = split_image_stack(img)
-    img_a_kp = ml_interface.predict(img_a)
-    img_b_kp = ml_interface.predict(img_b)
-    img_a_viz = keypoint_to_image(img_a, img_a_kp)
-    img_b_viz = keypoint_to_image(img_b, img_b_kp)
+    a_crop = determine_crop_region(s_a, img_a.shape[0], img_a.shape[1])
+    b_crop = determine_crop_region(s_b, img_b.shape[0], img_b.shape[1])
+    img_a_kp = ml_interface.predict(img_a, a_crop)
+    img_b_kp = ml_interface.predict(img_b, b_crop)
+    s_a.update_predictions(img_a_kp, (1.0 / i_cam.get_frame_rate_per_second()))
+    s_b.update_predictions(img_b_kp, (1.0 / i_cam.get_frame_rate_per_second()))
+    img_a_viz = skeleton_to_image(img_a, s_a)
+    img_b_viz = skeleton_to_image(img_b, s_b)
     return stack_image(img_a_viz, img_b_viz)
 
 
 def process_and_viz(i_cam: CameraInterface, ml_interface: MLAbstractInterface) -> MatLike:
     img = i_cam.get_next_frame()
     img_kp = ml_interface.predict(img)
-    img_viz = keypoint_to_image(img, img_kp)
+    s_a.update_predictions(img_kp, (1.0 / i_cam.get_frame_rate_per_second()))
+    img_viz = skeleton_to_image(img, s_a)
     return img_viz
 
 

@@ -2,7 +2,7 @@ import cv2
 from cv2.typing import MatLike
 from argparse import ArgumentParser
 import numpy as np
-from skeleton import KeypointMappings
+from mirage.skeleton import KeypointMappings, SkeletonDetection
 
 
 KeypointEdges = {
@@ -66,6 +66,34 @@ def keypoint_to_image(image: MatLike, keypoints: MatLike, min_confidence: float 
     return drawn_image
 
 
+def skeleton_to_image(image: MatLike, skele: SkeletonDetection, min_confidence: float = 0.2):
+    drawn_image: MatLike = image.copy()
+    for i, joint in skele.joints.items():
+        kpmap = joint
+        if kpmap.display:
+            y_val: float = joint.estimate[2]
+            x_val: float = joint.estimate[0]
+            confidence: float = joint.confidence
+            if confidence > min_confidence:
+                drawn_image = cv2.circle(
+                    drawn_image,
+                    k_coord(drawn_image, (y_val, x_val, 1)),
+                    radius=5,
+                    color=kpmap.color,
+                    thickness=2,
+                )
+    for edge_k, edge_v in KeypointEdges.items():
+        if skele.joints[edge_k[0]].display and skele.joints[edge_k[1]].display:
+            drawn_image = cv2.line(
+                drawn_image,
+                k_coord(drawn_image, (skele.joints[edge_k[0]].estimate[2], skele.joints[edge_k[0]].estimate[0])),
+                k_coord(drawn_image, (skele.joints[edge_k[1]].estimate[2], skele.joints[edge_k[1]].estimate[0])),
+                edge_v,
+                3,
+            )
+    return drawn_image
+
+
 def split_image_stack(stacked_image: MatLike, is_vertical_stack: bool = True) -> tuple[MatLike, MatLike]:
     resolution: list[int, int] = list(stacked_image.shape[:2])
     if is_vertical_stack:
@@ -87,3 +115,104 @@ def stack_image(image_a: MatLike, image_b: MatLike, is_vertical_stack: bool = Tr
         return np.concatenate((image_a, image_b), axis=0)
     else:
         return np.concatenate((image_a, image_b), axis=1)
+
+
+def default_crop_region(image_height: int, image_width: int) -> dict[str, float]:
+    """Default cropping region
+    taken from movenet tutorials
+    """
+    return None
+    if image_width > image_height:
+        box_height = image_width / image_height
+        box_width = 1.0
+        y_min = (image_height / 2 - image_width / 2) / image_height
+        x_min = 0.0
+    else:
+        box_height = 1.0
+        box_width = image_height / image_width
+        y_min = 0.0
+        x_min = (image_width / 2 - image_height / 2) / image_width
+
+    return {"y_min": y_min, "x_min": x_min, "height": box_height, "width": box_width}
+
+
+def torso_visible(skele: SkeletonDetection, min_confidence: float = 0.2):
+    """is torso visible, and are the points required for visibility confident enough?
+    taken from movenet tutorials
+    """
+    return (skele.joints[11].confidence > min_confidence or skele.joints[12].confidence > min_confidence) and (
+        skele.joints[5].confidence > min_confidence or skele.joints[6].confidence > min_confidence
+    )
+
+
+def determine_torso_and_body_range(
+    skele: SkeletonDetection,
+    center_y: float,
+    center_x: float,
+    image_width: int,
+    image_height: int,
+    min_confidence: float = 0.2,
+) -> list[float, float, float, float]:
+    torso_joints = [5, 6, 11, 12]
+    max_torso_yrange = 0.0
+    max_torso_xrange = 0.0
+    for joint in torso_joints:
+        dist_y = abs(center_y - skele.joints[joint].current_xy[1])
+        dist_x = abs(center_x - skele.joints[joint].current_xy[0])
+        max_torso_yrange = max(dist_y, max_torso_yrange)
+        max_torso_xrange = max(dist_x, max_torso_xrange)
+
+    max_body_yrange = 0.0
+    max_body_xrange = 0.0
+    for num, joint in skele.joints.items():
+        if joint.confidence < min_confidence:
+            continue
+        dist_y = abs(center_y - joint.current_xy[1])
+        dist_x = abs(center_x - joint.current_xy[0])
+        max_body_yrange = max(dist_y, max_body_yrange)
+        max_body_xrange = max(dist_x, max_body_xrange)
+    return [max_torso_yrange, max_torso_xrange, max_body_yrange, max_body_xrange]
+
+
+def determine_crop_region(skele: SkeletonDetection, image_height, image_width) -> dict[str, float]:
+    """determine the crop region to run inference, uses the skeleton detection to get
+    a square region that encloses the full body of the target person.  when not confident in
+    torso projections, falls back on full image padded to square. Modified from movenet tutorial
+    """
+    if not torso_visible(skele):
+        return default_crop_region(image_height, image_width)
+    center_y = (skele.joints[11].current_xy[1] + skele.joints[12].current_xy[1]) / 2
+    center_x = (skele.joints[11].current_xy[0] + skele.joints[12].current_xy[0]) / 2
+    (max_torso_yrange, max_torso_xrange, max_body_yrange, max_body_xrange) = determine_torso_and_body_range(
+        skele, center_y, center_x, image_width, image_height
+    )
+    # from ratio to resolution space
+    max_body_yrange *= image_height
+    max_body_xrange *= image_width
+    max_torso_yrange *= image_height
+    max_torso_xrange *= image_width
+    center_x *= image_width
+    center_y *= image_height
+
+    crop_length_half = np.amax(
+        [max_torso_xrange * 1.9, max_torso_yrange * 1.9, max_body_xrange * 1.2, max_body_yrange * 1.2]
+    )
+    tmp = np.array([center_x, image_width - center_x, center_y, image_height - center_y])
+    crop_length_half = np.amin([crop_length_half, np.amax(tmp)])
+
+    crop_corner = [center_y - crop_length_half, center_x - crop_length_half]
+
+    if crop_length_half > max(image_width, image_height) / 2:
+        return default_crop_region(image_height, image_width)
+    else:
+        if crop_corner[0] < 0:
+            import ipdb
+
+            ipdb.set_trace()
+        crop_length = crop_length_half * 2
+        return {
+            "y_min": crop_corner[0],
+            "x_min": crop_corner[1],
+            "height": (crop_corner[0] + crop_length) - crop_corner[0],
+            "width": (crop_corner[1] + crop_length) - crop_corner[1],
+        }
