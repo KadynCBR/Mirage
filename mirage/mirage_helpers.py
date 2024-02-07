@@ -205,10 +205,6 @@ def determine_crop_region(skele: SkeletonDetection, image_height, image_width) -
     if crop_length_half > max(image_width, image_height) / 2:
         return default_crop_region(image_height, image_width)
     else:
-        if crop_corner[0] < 0:
-            import ipdb
-
-            ipdb.set_trace()
         crop_length = crop_length_half * 2
         return {
             "y_min": crop_corner[0],

@@ -25,17 +25,42 @@ class MovenetInterface(MLAbstractInterface):
         self.movenet = self.model.signatures["serving_default"]
 
     def predict(self, image: MatLike, crop_region: dict[str, int] | None = None) -> MatLike:
+        im = image.copy()
         if crop_region is not None:
-            print(crop_region)
-            image = crop_image(
-                image,
+            im = crop_image(
+                im,
                 int(crop_region["y_min"]),
                 int(crop_region["height"]),
                 int(crop_region["x_min"]),
                 int(crop_region["width"]),
                 0,
             )
-        image = self.preprocess(image)
-        outputs = self.movenet(image)
+        im = self.preprocess(im)
+        outputs = self.movenet(im)
         keypoints = outputs["output_0"][0][0].numpy()
+        keypoints = self.keypoint_to_original_image_space(keypoints, image, crop_region)
+        return keypoints
+
+    def keypoint_to_original_image_space(
+        self, keypoints: np.ndarray, image: MatLike, crop_region: dict[str, int] | None = None
+    ) -> np.ndarray:
+        if crop_region is None:
+            return keypoints
+        print(keypoints)
+        print("-" * 10)
+        print(image.shape)
+        # scale_factor_width = image.shape[1] / float(crop_region["width"])
+        # scale_factor_height = image.shape[0] / float(crop_region["height"])
+        # y_add = crop_region["y_min"] * 2 / float(image.shape[0])
+        # x_add = crop_region["x_min"] / float(image.shape[1])
+        scale_factor_height = float(crop_region["height"]) / float(image.shape[0])
+        scale_factor_width = float(crop_region["width"]) / float(image.shape[1])
+        print(scale_factor_height)
+        print(scale_factor_width)
+        # print(y_mult)
+        # print(x_multi)
+        for i in range(len(keypoints)):
+            keypoints[i][0] = (crop_region["y_min"] / float(image.shape[0])) + keypoints[i][0] * (scale_factor_height)
+            keypoints[i][1] = (crop_region["x_min"] / float(image.shape[1])) + keypoints[i][1] * (scale_factor_width)
+        print(keypoints)
         return keypoints
