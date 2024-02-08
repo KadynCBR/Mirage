@@ -46,21 +46,11 @@ class MovenetInterface(MLAbstractInterface):
     ) -> np.ndarray:
         if crop_region is None:
             return keypoints
-        print(keypoints)
-        print("-" * 10)
-        print(image.shape)
-        # scale_factor_width = image.shape[1] / float(crop_region["width"])
-        # scale_factor_height = image.shape[0] / float(crop_region["height"])
-        # y_add = crop_region["y_min"] * 2 / float(image.shape[0])
-        # x_add = crop_region["x_min"] / float(image.shape[1])
-        scale_factor_height = float(crop_region["height"]) / float(image.shape[0])
-        scale_factor_width = float(crop_region["width"]) / float(image.shape[1])
-        print(scale_factor_height)
-        print(scale_factor_width)
-        # print(y_mult)
-        # print(x_multi)
+        original_height, original_width, channels = image.shape
+        padd = original_width - original_height
         for i in range(len(keypoints)):
-            keypoints[i][0] = (crop_region["y_min"] / float(image.shape[0])) + keypoints[i][0] * (scale_factor_height)
-            keypoints[i][1] = (crop_region["x_min"] / float(image.shape[1])) + keypoints[i][1] * (scale_factor_width)
-        print(keypoints)
+            keypoints[i][1] = (crop_region["x_min"] + (keypoints[i][1] * float(crop_region["width"]))) / original_width
+            keypoints[i][0] = (crop_region["y_min"] + (padd / 2) + (keypoints[i][0] * float(crop_region["height"]))) / (
+                original_height + padd
+            )
         return keypoints

@@ -66,10 +66,10 @@ class JointDetection:
 
 KeypointMappings = {
     0: JointDetection("nose", (0, 0, 255), True),
-    1: JointDetection("lefteye", (0, 0, 255), False),
-    2: JointDetection("righteye", (0, 0, 255), False),
-    3: JointDetection("leftear", (0, 0, 255), False),
-    4: JointDetection("rightear", (0, 0, 255), False),
+    1: JointDetection("lefteye", (0, 0, 255), True),  # face
+    2: JointDetection("righteye", (0, 0, 255), True),  # face
+    3: JointDetection("leftear", (0, 0, 255), True),  # face
+    4: JointDetection("rightear", (0, 0, 255), True),  # face
     5: JointDetection("leftshoulder", (0, 255, 255), True),
     6: JointDetection("rightshoulder", (0, 255, 255), True),
     7: JointDetection("leftelbow", (0, 255, 255), True),

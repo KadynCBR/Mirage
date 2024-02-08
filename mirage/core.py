@@ -17,16 +17,21 @@ s_b = SkeletonDetection()
 
 
 def process_and_viz_split(i_cam: CameraInterface, ml_interface: MLAbstractInterface) -> MatLike:
-    img = i_cam.get_next_frame()
-    img_a, img_b = split_image_stack(img)
-    a_crop = determine_crop_region(s_a, img_a.shape[0], img_a.shape[1])
-    b_crop = determine_crop_region(s_b, img_b.shape[0], img_b.shape[1])
-    img_a_kp = ml_interface.predict(img_a, a_crop)
-    img_b_kp = ml_interface.predict(img_b, b_crop)
-    s_a.update_predictions(img_a_kp, (1.0 / i_cam.get_frame_rate_per_second()))
-    s_b.update_predictions(img_b_kp, (1.0 / i_cam.get_frame_rate_per_second()))
-    img_a_viz = skeleton_to_image(img_a, s_a)
-    img_b_viz = skeleton_to_image(img_b, s_b)
+    try:
+        img = i_cam.get_next_frame()
+        img_a, img_b = split_image_stack(img)
+        a_crop = determine_crop_region(s_a, img_a.shape[0], img_a.shape[1])
+        b_crop = determine_crop_region(s_b, img_b.shape[0], img_b.shape[1])
+        img_a_kp = ml_interface.predict(img_a, a_crop)
+        img_b_kp = ml_interface.predict(img_b, b_crop)
+        s_a.update_predictions(img_a_kp, (1.0 / i_cam.get_frame_rate_per_second()))
+        s_b.update_predictions(img_b_kp, (1.0 / i_cam.get_frame_rate_per_second()))
+        img_a_viz = skeleton_to_image(img_a, s_a)
+        img_b_viz = skeleton_to_image(img_b, s_b)
+    except:
+        import ipdb
+
+        ipdb.set_trace()
     return stack_image(img_a_viz, img_b_viz)
 
 

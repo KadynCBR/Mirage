@@ -31,11 +31,13 @@ def crop_image(image: MatLike, y: int, height: int, x: int, width: int, margin: 
     return image[y + margin : y + height - margin, x + margin : x + width - margin]
 
 
-def k_coord(image: MatLike, keypoint: tuple[int, int, int], adjust_val: int = -280) -> tuple[int, int]:
+def k_coord(image: MatLike, keypoint: tuple[int, int, int]) -> tuple[int, int]:
     ratio = image.shape[1] / image.shape[0]
+    # assuming landscape.. and padded to be square. TODO: make more robust or informed.
+    padding_val = (image.shape[0] - image.shape[1]) / 2
     y_val: float = keypoint[0]
     x_val: float = keypoint[1]
-    return (int(x_val * image.shape[1]), int(y_val * image.shape[0] * ratio - 280))
+    return (int(x_val * image.shape[1]), int(y_val * image.shape[0] * ratio + padding_val))
 
 
 def keypoint_to_image(image: MatLike, keypoints: MatLike, min_confidence: float = 0.2) -> MatLike:
@@ -194,18 +196,23 @@ def determine_crop_region(skele: SkeletonDetection, image_height, image_width) -
     center_x *= image_width
     center_y *= image_height
 
-    crop_length_half = np.amax(
-        [max_torso_xrange * 1.9, max_torso_yrange * 1.9, max_body_xrange * 1.2, max_body_yrange * 1.2]
-    )
+    ranges = [max_torso_xrange * 2, max_torso_yrange * 2, max_body_xrange * 2, max_body_yrange * 2]
+    crop_length_half = np.amax(ranges)
     tmp = np.array([center_x, image_width - center_x, center_y, image_height - center_y])
     crop_length_half = np.amin([crop_length_half, np.amax(tmp)])
-
     crop_corner = [center_y - crop_length_half, center_x - crop_length_half]
+    crop_length = crop_length_half * 2
+    out_of_bound = (
+        crop_corner[0] < 0
+        or crop_corner[1] < 0
+        or ((crop_corner[0] + crop_length) - crop_corner[0]) > image_height
+        or ((crop_corner[1] + crop_length) - crop_corner[1]) > image_width
+        or crop_length_half > max(image_width, image_height) / 2
+    )
 
-    if crop_length_half > max(image_width, image_height) / 2:
+    if out_of_bound:
         return default_crop_region(image_height, image_width)
     else:
-        crop_length = crop_length_half * 2
         return {
             "y_min": crop_corner[0],
             "x_min": crop_corner[1],
