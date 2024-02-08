@@ -68,7 +68,7 @@ def keypoint_to_image(image: MatLike, keypoints: MatLike, min_confidence: float 
     return drawn_image
 
 
-def skeleton_to_image(image: MatLike, skele: SkeletonDetection, min_confidence: float = 0.2):
+def skeleton_to_image(image: MatLike, skele: SkeletonDetection, min_confidence: float = 0.2, display_confidence=False):
     drawn_image: MatLike = image.copy()
     for i, joint in skele.joints.items():
         kpmap = joint
@@ -76,14 +76,13 @@ def skeleton_to_image(image: MatLike, skele: SkeletonDetection, min_confidence: 
             y_val: float = joint.estimate[2]
             x_val: float = joint.estimate[0]
             confidence: float = joint.confidence
-            if confidence > min_confidence:
-                drawn_image = cv2.circle(
-                    drawn_image,
-                    k_coord(drawn_image, (y_val, x_val, 1)),
-                    radius=5,
-                    color=kpmap.color,
-                    thickness=2,
-                )
+            drawn_image = cv2.circle(
+                drawn_image,
+                k_coord(drawn_image, (y_val, x_val, 1)),
+                radius=5,
+                color=kpmap.color if confidence > min_confidence else (0, 0, 255),
+                thickness=2,
+            )
     for edge_k, edge_v in KeypointEdges.items():
         if skele.joints[edge_k[0]].display and skele.joints[edge_k[1]].display:
             drawn_image = cv2.line(
@@ -93,6 +92,8 @@ def skeleton_to_image(image: MatLike, skele: SkeletonDetection, min_confidence: 
                 edge_v,
                 3,
             )
+    if display_confidence:
+        drawn_image = display_log_info(drawn_image, skele)
     return drawn_image
 
 
@@ -219,3 +220,26 @@ def determine_crop_region(skele: SkeletonDetection, image_height, image_width) -
             "height": (crop_corner[0] + crop_length) - crop_corner[0],
             "width": (crop_corner[1] + crop_length) - crop_corner[1],
         }
+
+
+def display_log_info(im: MatLike, skele: SkeletonDetection):
+    img = im.copy()
+    starting_y = 150
+    starting_x = im.shape[1] - 350
+    height_per_text = 30
+    img = overlay_rect(img, starting_x - 30, 20, im.shape[1] - starting_x + 20, im.shape[0] - 40)
+    for j in skele.joints.values():
+        out = f"{j.name}: {j.confidence*100:.0f}%"
+        img = cv2.putText(img, f"{out:<20}", (starting_x, starting_y), cv2.FONT_HERSHEY_PLAIN, 2, (255, 0, 255), 2)
+        starting_y += height_per_text
+    return img
+
+
+def overlay_rect(img: MatLike, x: int, y: int, w: int, h: int):
+    # First we crop the sub-rect from the image
+    sub_img = img[y : y + h, x : x + w]
+    white_rect = np.ones(sub_img.shape, dtype=np.uint8) * 0
+    res = cv2.addWeighted(sub_img, 0.25, white_rect, 0.75, 1.0)
+    # Putting the image back to its position
+    img[y : y + h, x : x + w] = res
+    return img

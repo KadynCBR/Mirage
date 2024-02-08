@@ -26,8 +26,8 @@ def process_and_viz_split(i_cam: CameraInterface, ml_interface: MLAbstractInterf
         img_b_kp = ml_interface.predict(img_b, b_crop)
         s_a.update_predictions(img_a_kp, (1.0 / i_cam.get_frame_rate_per_second()))
         s_b.update_predictions(img_b_kp, (1.0 / i_cam.get_frame_rate_per_second()))
-        img_a_viz = skeleton_to_image(img_a, s_a)
-        img_b_viz = skeleton_to_image(img_b, s_b)
+        img_a_viz = skeleton_to_image(img_a, s_a, display_confidence=True)
+        img_b_viz = skeleton_to_image(img_b, s_b, display_confidence=True)
     except:
         import ipdb
 
