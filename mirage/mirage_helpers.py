@@ -243,3 +243,18 @@ def overlay_rect(img: MatLike, x: int, y: int, w: int, h: int):
     # Putting the image back to its position
     img[y : y + h, x : x + w] = res
     return img
+
+
+def merge_skeletons(image: MatLike, skeleton_front: SkeletonDetection, skeleton_side: SkeletonDetection):
+    homogenous_skeleton = {}
+    for k in skeleton_front.joints.keys():
+        x, _, y, _ = skeleton_front.joints[k].estimate
+        x, y = k_coord(image, (y, x, 1))
+        z, _, y2, _ = skeleton_side.joints[k].estimate
+        z, y2 = k_coord(image, (y2, z, 1))
+        # print(f"Naive Bone matching: {skeleton_front.joints[k].name} [{x}, {y}, {z}]")
+        # An issue arrises here when the subject turns or rotates, the 'vertical'(y in the 2d image case) value is no longer grabbing
+        # the most reliable frame of reference, Should I continue this, This would be something to change that's largely solved by
+        # reliable depth data or triangulation.
+        homogenous_skeleton[k] = [x, y, z]
+    return homogenous_skeleton

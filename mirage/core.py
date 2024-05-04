@@ -10,22 +10,26 @@ from mirage.mirage_helpers import *
 from mirage.pose_extract_base import MLAbstractInterface
 from mirage.movenet import MovenetInterface
 from mirage.rgb_interface import CameraInterface
-from mirage.skeleton import SkeletonDetection
+from mirage.skeleton import SkeletonDetection, SkeletonDetection3D
+import pickle
 
 s_a = SkeletonDetection()
 s_b = SkeletonDetection()
+skeleton_3d = SkeletonDetection3D()
 
 
 def process_and_viz_split(i_cam: CameraInterface, ml_interface: MLAbstractInterface) -> MatLike:
     try:
+        dt = 1.0 / i_cam.get_frame_rate_per_second()
         img = i_cam.get_next_frame()
         img_a, img_b = split_image_stack(img)
         a_crop = determine_crop_region(s_a, img_a.shape[0], img_a.shape[1])
         b_crop = determine_crop_region(s_b, img_b.shape[0], img_b.shape[1])
         img_a_kp = ml_interface.predict(img_a, a_crop)
         img_b_kp = ml_interface.predict(img_b, b_crop)
-        s_a.update_predictions(img_a_kp, (1.0 / i_cam.get_frame_rate_per_second()))
-        s_b.update_predictions(img_b_kp, (1.0 / i_cam.get_frame_rate_per_second()))
+        s_a.update_predictions(img_a_kp, dt)
+        s_b.update_predictions(img_b_kp, dt)
+        skeleton_3d.update_predictions(merge_skeletons(img_a, s_a, s_b), dt)
         img_a_viz = skeleton_to_image(img_a, s_a, display_confidence=True)
         img_b_viz = skeleton_to_image(img_b, s_b, display_confidence=True)
     except:
@@ -61,7 +65,7 @@ def main(
     if not i_cam.IsImage:
         frames: list[MatLike] = []
         i_cam.set_frame(frame_number_start)
-        frame_number_end = frame_number_end if frame_number_end != 0 else i_cam.get_total_frames()
+        frame_number_end = frame_number_end if frame_number_end > 0 else i_cam.get_total_frames()
         for frame_number in range(frame_number_end - frame_number_start):
             if splitimage:
                 frames.append(process_and_viz_split(i_cam, ml_interface))
@@ -73,12 +77,14 @@ def main(
         out = cv2.VideoWriter(
             unfixed_fn,
             cv2.VideoWriter_fourcc("m", "p", "4", "v"),
-            20.0,
+            i_cam.get_frame_rate_per_second(),
             (frames[-1].shape[1], frames[-1].shape[0]),
         )
+        print(i_cam.get_frame_rate_per_second())
         for frame in frames:
             out.write(frame)
         out.release()
+        pickl = pickle.dump(skeleton_3d, open(f"{input_file.split('/')[-1].split('.')[0]}.sk3d", "wb"))
         fix_mp4_encoding(unfixed_fn, output_fn)
     else:
         if splitimage:
