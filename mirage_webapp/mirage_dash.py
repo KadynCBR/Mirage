@@ -117,9 +117,9 @@ app.clientside_callback(
             var originalVideo = document.getElementById('originalvideo');
             var processedVideo = document.getElementById('processedvideo');
             if (originalVideo.paused) {
+                document.querySelector("g.updatemenu-header-group > g:nth-child(1)").dispatchEvent(new Event('click'))
                 originalVideo.play();
                 processedVideo.play();
-                document.querySelector("g.updatemenu-header-group > g:nth-child(1)").dispatchEvent(new Event('click'))
             } else {
                 originalVideo.pause();
                 processedVideo.pause();

@@ -63,7 +63,7 @@ def plot_homogeneous_skeleton3D_animation(skeleton_3d_model: SkeletonDetection3D
                         "args": [
                             None,
                             {
-                                "frame": {"duration": 26, "redraw": True},
+                                "frame": {"duration": 27, "redraw": True},
                                 "fromcurrent": True,
                             },
                         ],
