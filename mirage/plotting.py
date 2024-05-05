@@ -47,8 +47,9 @@ def get_homogeneous_skeleton3D_plot_data(
 
 
 def plot_homogeneous_skeleton3D_animation(skeleton_3d_model: SkeletonDetection3D, zmin: int = -40, zmax: int = 120):
+    total_frames = len(skeleton_3d_model.joints[0].saved_states)
     frames = []
-    for frame_num in range(len(skeleton_3d_model.joints[0].saved_states)):
+    for frame_num in range(0, total_frames, 1):
         frame_data = get_homogeneous_skeleton3D_plot_data(skeleton_3d_model, frame_num, zmin, zmax)
         frames.append(go.Frame(data=frame_data))
     layout = go.Layout(
@@ -56,9 +57,16 @@ def plot_homogeneous_skeleton3D_animation(skeleton_3d_model: SkeletonDetection3D
         height=720,
         updatemenus=[
             {
+                "type": "buttons",
                 "buttons": [
                     {
-                        "args": [None, {"frame": {"duration": 2, "redraw": True}, "fromcurrent": True}],
+                        "args": [
+                            None,
+                            {
+                                "frame": {"duration": 26, "redraw": True},
+                                "fromcurrent": True,
+                            },
+                        ],
                         "label": "Play",
                         "method": "animate",
                     },
@@ -66,7 +74,7 @@ def plot_homogeneous_skeleton3D_animation(skeleton_3d_model: SkeletonDetection3D
                         "args": [
                             [None],
                             {
-                                "frame": {"duration": 0, "redraw": True},
+                                "frame": {"duration": 0, "redraw": False},
                                 "mode": "immediate",
                                 "transition": {"duration": 0},
                             },
@@ -75,19 +83,17 @@ def plot_homogeneous_skeleton3D_animation(skeleton_3d_model: SkeletonDetection3D
                         "method": "animate",
                     },
                 ],
-                "direction": "left",
-                "showactive": False,
-                "type": "buttons",
+                "showactive": True,
                 "x": 0.1,
-                "xanchor": "right",
                 "y": 0,
-                "yanchor": "top",
+                "yanchor": "bottom",
             }
         ],
     )
     initial_data = get_homogeneous_skeleton3D_plot_data(skeleton_3d_model, 0, zmin, zmax)
     plot_figure = go.Figure(data=initial_data, layout=layout, frames=frames)
     plot_figure.update_layout(
+        showlegend=False,
         scene=dict(
             xaxis=dict(range=[0, 1280]),  # adjust x-axis range if necessary
             yaxis=dict(range=[0, 1280]),  # adjust y-axis range if necessary
@@ -99,6 +105,5 @@ def plot_homogeneous_skeleton3D_animation(skeleton_3d_model: SkeletonDetection3D
             aspectratio=dict(x=2, y=2, z=1),
             camera=dict(up=dict(x=0, y=0, z=1), eye=dict(x=-1.5, y=-1.5, z=0.5)),
         ),
-        uirevision=True,
     )
     return plot_figure

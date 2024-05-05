@@ -9,3 +9,7 @@ OUTPUT/
 mirage.egg-info/
 dist/
 build/
+
+mirage_webapp/static
+*.sk3d
+*.mp4

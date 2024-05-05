@@ -57,7 +57,15 @@ app.layout = html.Div(
             [
                 dbc.Col(
                     dbc.Row(
-                        [html.Video(id="originalvideo", src=f"/static/{filename}.mp4", autoPlay=False, controls=True)]
+                        [
+                            html.Video(
+                                id="originalvideo",
+                                src=f"/static/{filename}.mp4",
+                                autoPlay=False,
+                                muted=True,
+                                controls=True,
+                            )
+                        ]
                     ),
                     width=4,
                 ),
@@ -68,6 +76,7 @@ app.layout = html.Div(
                                 id="processedvideo",
                                 src=f"/static/{filename}Processed.mp4",
                                 autoPlay=False,
+                                muted=True,
                                 controls=True,
                             )
                         ]
@@ -78,7 +87,7 @@ app.layout = html.Div(
             ],
             align="center",
         ),
-        dbc.Row([html.Button("Start Animations", id="startAnimationButton")]),
+        dbc.Row([html.Button("Play/Pause Animations", id="startAnimationButton")]),
     ],
 )
 
@@ -99,22 +108,25 @@ def update_output(contents, filename):
         parse_contents(contents, filename)
 
 
-# @app.callback(
-#     [Output("originalvideo", "autoPlay"), Output("processedvideo", "autoPlay")],
-#     Input("startAnimationButton", "n_clicks"),
-# )
-# def start_animation(n_clicks):
-#     print("Clicked")
-#     autoPlay = True
-#     return autoPlay, autoPlay
-
 app.clientside_callback(
     """
-    function startVideos() {
-        var originalVideo = document.getElementById('originalvideo');
-        var processedVideo = document.getElementById('processedvideo');
-        originalVideo.play();
-        processedVideo.play();
+    function startVideos(n_clicks) {
+        if (n_clicks > 0) {
+        
+            console.log(dash_clientside.callback_context);
+            var originalVideo = document.getElementById('originalvideo');
+            var processedVideo = document.getElementById('processedvideo');
+            if (originalVideo.paused) {
+                originalVideo.play();
+                processedVideo.play();
+                document.querySelector("g.updatemenu-header-group > g:nth-child(1)").dispatchEvent(new Event('click'))
+            } else {
+                originalVideo.pause();
+                processedVideo.pause();
+                document.querySelector("g.updatemenu-header-group > g:nth-child(2)").dispatchEvent(new Event('click'))
+            }
+        }
+        return false;
     }
     """,
     Output("originalvideo", "autoPlay"),
