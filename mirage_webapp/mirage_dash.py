@@ -13,11 +13,9 @@ import base64
 import subprocess
 from glob import glob
 
-filename = "Eva02"
+filename = "Dancing"
 server = Flask(__name__)
-app = Dash(__name__, server=server, external_stylesheets=[dbc.themes.SLATE])
-lazyreconstruct = pickle.load(open(f"static/{filename}.sk3d", "rb"))
-fig = plot_homogeneous_skeleton3D_animation(lazyreconstruct)
+app = Dash(__name__, server=server, external_stylesheets=[dbc.themes.SLATE], suppress_callback_exceptions=True)
 processed_files_list = [g.split("/")[-1].split(".")[0] for g in glob("static/*.sk3d")]
 
 app.layout = html.Div(
@@ -56,67 +54,77 @@ app.layout = html.Div(
             align="center",
         ),
         dbc.Row(
-            [dcc.Dropdown(processed_files_list, processed_files_list[0], id="data-selection")],
+            [dcc.Dropdown(processed_files_list, "", id="data-selection", clearable=True)],
             align="center",
             style={"marginBottom": "10px", "marginTop": "10px"},
         ),
-        dbc.Row(
-            [
-                dbc.Col(
-                    dbc.Row(
-                        [
-                            html.Video(
-                                id="originalvideo",
-                                src=f"/static/{filename}.mp4",
-                                preload="auto",
-                                muted=True,
-                                controls=True,
-                            )
-                        ]
-                    ),
-                    width=4,
-                ),
-                dbc.Col(
-                    dbc.Row(
-                        [
-                            html.Video(
-                                id="processedvideo",
-                                src=f"/static/{filename}Processed.mp4",
-                                preload="auto",
-                                muted=True,
-                                controls=True,
-                            )
-                        ]
-                    ),
-                    width=4,
-                ),
-                dbc.Col(dcc.Graph(figure=fig, id="sk3d-graph"), width=4),
-            ],
-            align="center",
-        ),
-        dbc.Row([html.Button("Play/Pause Animations", id="startAnimationButton")]),
+        html.Div(id="page-content"),
         html.P(id="placeholder", hidden=True),  # plotly doesn't like client callbacks without output.
+        html.P(id="placeholder2", hidden=True),  # plotly doesn't like client callbacks without output.
     ],
 )
+
+
+@app.callback(Output("page-content", "children"), Input("url", "pathname"))
+def display_page(pathname):
+    if pathname is None:
+        return "404 - not found"
+    else:
+        filename = pathname.lstrip("/")
+        return generate_content(filename)
+
+
+def generate_content(fn):
+    if fn == "":
+        return html.Div([html.H1("Select Data From Drop Down", style={"marginLeft": "auto", "marginRight": "auto"})])
+    else:
+        lr = pickle.load(open(f"static/{fn}.sk3d", "rb"))
+        figr = plot_homogeneous_skeleton3D_animation(lr)
+        return html.Div(
+            [
+                dbc.Row(
+                    [
+                        dbc.Col(
+                            dbc.Row(
+                                [
+                                    html.Video(
+                                        id="originalvideo",
+                                        src=f"/static/{fn}.mp4",
+                                        preload="auto",
+                                        muted=True,
+                                        controls=True,
+                                    )
+                                ]
+                            ),
+                            width=4,
+                        ),
+                        dbc.Col(
+                            dbc.Row(
+                                [
+                                    html.Video(
+                                        id="processedvideo",
+                                        src=f"/static/{fn}Processed.mp4",
+                                        preload="auto",
+                                        muted=True,
+                                        controls=True,
+                                    )
+                                ]
+                            ),
+                            width=4,
+                        ),
+                        dbc.Col(dcc.Graph(figure=figr, id="sk3d-graph"), width=4),
+                    ],
+                    align="center",
+                ),
+                dbc.Row([html.Button("Play/Pause Animations", id="startAnimationButton")]),
+            ]
+        )
 
 
 @server.route("/static/<path:path>")
 def serve_static(path):
     root_dir = os.getcwd()
     return Flask.send_from_directory(os.path.join(root_dir, "static"), path)
-
-
-@callback(
-    [Output("originalvideo", "src"), Output("processedvideo", "src"), Output("sk3d-graph", "figure")],
-    Input("data-selection", "value"),
-)
-def update_filename(new_fn):
-    if new_fn is None:
-        return ""
-    print(f"hello {new_fn}")
-    lr = pickle.load(open(f"static/{filename}.sk3d", "rb"))
-    figr = plot_homogeneous_skeleton3D_animation(lr)
-    return (f"/static/{filename}.mp4", f"/static/{filename}Processed.mp4", figr)
 
 
 @callback(
@@ -133,7 +141,6 @@ app.clientside_callback(
     """
     function startVideos(n_clicks) {
         if (n_clicks > 0) {
-        
             console.log(dash_clientside.callback_context);
             var originalVideo = document.getElementById('originalvideo');
             var processedVideo = document.getElementById('processedvideo');
@@ -171,11 +178,18 @@ def parse_contents(contents, filename):
         print(e)
 
 
-# @app.route("/<videotitle>")
-# def display_processed_data(videotitle):
-#     lazyreconstruct = pickle.load(open(f"static/{filename}.sk3d", "rb"))
-#     fig = plot_homogeneous_skeleton3D_animation(lazyreconstruct)
-#     return "hi"
+app.clientside_callback(
+    """
+    function(value) {
+        if (value != null && value.length > 0) {
+            window.location.href = value;
+        }
+    }
+    return true;
+    """,
+    Output("placeholder2", "hidden"),
+    Input("data-selection", "value"),
+)
 
 
 if __name__ == "__main__":
