@@ -10,17 +10,19 @@ import dash_player as dp
 from flask import Flask, Response
 import os
 import base64
+import subprocess
+from glob import glob
 
-filename = "Dancing"
-
+filename = "Eva02"
 server = Flask(__name__)
 app = Dash(__name__, server=server, external_stylesheets=[dbc.themes.SLATE])
 lazyreconstruct = pickle.load(open(f"static/{filename}.sk3d", "rb"))
-
-fig = go.Figure(data=[go.Scatter(x=[1, 2, 3], y=[4, 1, 2])])
+fig = plot_homogeneous_skeleton3D_animation(lazyreconstruct)
+processed_files_list = [g.split("/")[-1].split(".")[0] for g in glob("static/*.sk3d")]
 
 app.layout = html.Div(
     [
+        dcc.Location(id="url", refresh=False),
         dbc.NavbarSimple(
             children=[],
             brand="Mirage Low Cost Motion Capture",
@@ -54,6 +56,11 @@ app.layout = html.Div(
             align="center",
         ),
         dbc.Row(
+            [dcc.Dropdown(processed_files_list, processed_files_list[0], id="data-selection")],
+            align="center",
+            style={"marginBottom": "10px", "marginTop": "10px"},
+        ),
+        dbc.Row(
             [
                 dbc.Col(
                     dbc.Row(
@@ -61,7 +68,7 @@ app.layout = html.Div(
                             html.Video(
                                 id="originalvideo",
                                 src=f"/static/{filename}.mp4",
-                                autoPlay=False,
+                                preload="auto",
                                 muted=True,
                                 controls=True,
                             )
@@ -75,7 +82,7 @@ app.layout = html.Div(
                             html.Video(
                                 id="processedvideo",
                                 src=f"/static/{filename}Processed.mp4",
-                                autoPlay=False,
+                                preload="auto",
                                 muted=True,
                                 controls=True,
                             )
@@ -83,11 +90,12 @@ app.layout = html.Div(
                     ),
                     width=4,
                 ),
-                dbc.Col(dcc.Graph(figure=plot_homogeneous_skeleton3D_animation(lazyreconstruct)), width=4),
+                dbc.Col(dcc.Graph(figure=fig, id="sk3d-graph"), width=4),
             ],
             align="center",
         ),
         dbc.Row([html.Button("Play/Pause Animations", id="startAnimationButton")]),
+        html.P(id="placeholder", hidden=True),  # plotly doesn't like client callbacks without output.
     ],
 )
 
@@ -96,6 +104,19 @@ app.layout = html.Div(
 def serve_static(path):
     root_dir = os.getcwd()
     return Flask.send_from_directory(os.path.join(root_dir, "static"), path)
+
+
+@callback(
+    [Output("originalvideo", "src"), Output("processedvideo", "src"), Output("sk3d-graph", "figure")],
+    Input("data-selection", "value"),
+)
+def update_filename(new_fn):
+    if new_fn is None:
+        return ""
+    print(f"hello {new_fn}")
+    lr = pickle.load(open(f"static/{filename}.sk3d", "rb"))
+    figr = plot_homogeneous_skeleton3D_animation(lr)
+    return (f"/static/{filename}.mp4", f"/static/{filename}Processed.mp4", figr)
 
 
 @callback(
@@ -129,8 +150,7 @@ app.clientside_callback(
         return false;
     }
     """,
-    Output("originalvideo", "autoPlay"),
-    Output("processedvideo", "autoPlay"),
+    Output("placeholder", "hidden"),
     Input("startAnimationButton", "n_clicks"),
 )
 
@@ -143,11 +163,19 @@ def parse_contents(contents, filename):
             print(f"Writing file {filename}")
             with open(f"static/{filename}", "wb") as f:
                 f.write(decoded)
-            # save video to static folder
+            print("spinning up process.")
             # spin up process to operate on static folder and save outputs to static folder
+            subprocess.run(["python", "../mirage/core.py", f"static/{filename}", "-o", "static/"])
             return html.Div(f"File: {filename} uploaded! When processing is done, click nav button.")
     except Exception as e:
         print(e)
+
+
+# @app.route("/<videotitle>")
+# def display_processed_data(videotitle):
+#     lazyreconstruct = pickle.load(open(f"static/{filename}.sk3d", "rb"))
+#     fig = plot_homogeneous_skeleton3D_animation(lazyreconstruct)
+#     return "hi"
 
 
 if __name__ == "__main__":
