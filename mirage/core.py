@@ -54,7 +54,7 @@ def fix_mp4_encoding(unfixed_fn: str, fixed_fn: str):
 
 def main(
     input_file: str,
-    output_fn: str,
+    output_folder: str,
     frame_number_start: int,
     frame_number_end: int,
     splitimage: bool = False,
@@ -72,8 +72,8 @@ def main(
             else:
                 frames.append(process_and_viz(i_cam, ml_interface))
             if writeframe:
-                cv2.imwrite(f"OUTPUT/Processed_{frame_number}.jpg", frames[-1])
-        unfixed_fn: str = f"{output_fn[:-5]}_UNFIXED.mp4"
+                cv2.imwrite(os.path.join(output_folder, f"Processed_{frame_number}.jpg", frames[-1]))
+        unfixed_fn: str = os.path.join(output_folder, f"{input_file.split('/')[-1].split('.')[0]}_UNFIXED.mp4")
         out = cv2.VideoWriter(
             unfixed_fn,
             cv2.VideoWriter_fourcc("m", "p", "4", "v"),
@@ -84,8 +84,12 @@ def main(
         for frame in frames:
             out.write(frame)
         out.release()
-        pickl = pickle.dump(skeleton_3d, open(f"{input_file.split('/')[-1].split('.')[0]}.sk3d", "wb"))
-        fix_mp4_encoding(unfixed_fn, output_fn)
+        pickl = pickle.dump(
+            skeleton_3d, open(os.path.join(output_folder, f"{input_file.split('/')[-1].split('.')[0]}.sk3d"), "wb")
+        )
+        fix_mp4_encoding(
+            unfixed_fn, os.path.join(output_folder, f"{input_file.split('/')[-1].split('.')[0]}Processed.mp4")
+        )
     else:
         if splitimage:
             cv2.imwrite(f"{input_file[:-5]}_POSE.jpg", process_and_viz_split(i_cam, ml_interface))
@@ -99,7 +103,7 @@ if __name__ == "__main__":
     parser.add_argument("-s", "--frame_start", type=int, required=False, default=0)
     parser.add_argument("-e", "--frame_end", type=int, required=False, default=-1)
     parser.add_argument("--no-split", dest="split", action="store_false", required=False)
-    parser.add_argument("-o", "--output_fn", type=str, required=False, default="OUTPUT/Processed.mp4")
+    parser.add_argument("-o", "--output_folder", type=str, required=False, default="OUTPUT/")
     parser.set_defaults(split=True)
     args = parser.parse_args()
-    main(args.input_file, args.output_fn, args.frame_start, args.frame_end, args.split, False)
+    main(args.input_file, args.output_folder, args.frame_start, args.frame_end, args.split, False)

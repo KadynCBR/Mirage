@@ -10,17 +10,17 @@ import dash_player as dp
 from flask import Flask, Response
 import os
 import base64
+import subprocess
+from glob import glob
 
 filename = "Dancing"
-
 server = Flask(__name__)
-app = Dash(__name__, server=server, external_stylesheets=[dbc.themes.SLATE])
-lazyreconstruct = pickle.load(open(f"static/{filename}.sk3d", "rb"))
-
-fig = go.Figure(data=[go.Scatter(x=[1, 2, 3], y=[4, 1, 2])])
+app = Dash(__name__, server=server, external_stylesheets=[dbc.themes.SLATE], suppress_callback_exceptions=True)
+processed_files_list = [g.split("/")[-1].split(".")[0] for g in glob("static/*.sk3d")]
 
 app.layout = html.Div(
     [
+        dcc.Location(id="url", refresh=False),
         dbc.NavbarSimple(
             children=[],
             brand="Mirage Low Cost Motion Capture",
@@ -54,42 +54,71 @@ app.layout = html.Div(
             align="center",
         ),
         dbc.Row(
-            [
-                dbc.Col(
-                    dbc.Row(
-                        [
-                            html.Video(
-                                id="originalvideo",
-                                src=f"/static/{filename}.mp4",
-                                autoPlay=False,
-                                muted=True,
-                                controls=True,
-                            )
-                        ]
-                    ),
-                    width=4,
-                ),
-                dbc.Col(
-                    dbc.Row(
-                        [
-                            html.Video(
-                                id="processedvideo",
-                                src=f"/static/{filename}Processed.mp4",
-                                autoPlay=False,
-                                muted=True,
-                                controls=True,
-                            )
-                        ]
-                    ),
-                    width=4,
-                ),
-                dbc.Col(dcc.Graph(figure=plot_homogeneous_skeleton3D_animation(lazyreconstruct)), width=4),
-            ],
+            [dcc.Dropdown(processed_files_list, "", id="data-selection", clearable=True)],
             align="center",
+            style={"marginBottom": "10px", "marginTop": "10px"},
         ),
-        dbc.Row([html.Button("Play/Pause Animations", id="startAnimationButton")]),
+        html.Div(id="page-content"),
+        html.P(id="placeholder", hidden=True),  # plotly doesn't like client callbacks without output.
+        html.P(id="placeholder2", hidden=True),  # plotly doesn't like client callbacks without output.
     ],
 )
+
+
+@app.callback(Output("page-content", "children"), Input("url", "pathname"))
+def display_page(pathname):
+    if pathname is None:
+        return "404 - not found"
+    else:
+        filename = pathname.lstrip("/")
+        return generate_content(filename)
+
+
+def generate_content(fn):
+    if fn == "":
+        return html.Div([html.H1("Select Data From Drop Down", style={"marginLeft": "auto", "marginRight": "auto"})])
+    else:
+        lr = pickle.load(open(f"static/{fn}.sk3d", "rb"))
+        figr = plot_homogeneous_skeleton3D_animation(lr)
+        return html.Div(
+            [
+                dbc.Row(
+                    [
+                        dbc.Col(
+                            dbc.Row(
+                                [
+                                    html.Video(
+                                        id="originalvideo",
+                                        src=f"/static/{fn}.mp4",
+                                        preload="auto",
+                                        muted=True,
+                                        controls=True,
+                                    )
+                                ]
+                            ),
+                            width=4,
+                        ),
+                        dbc.Col(
+                            dbc.Row(
+                                [
+                                    html.Video(
+                                        id="processedvideo",
+                                        src=f"/static/{fn}Processed.mp4",
+                                        preload="auto",
+                                        muted=True,
+                                        controls=True,
+                                    )
+                                ]
+                            ),
+                            width=4,
+                        ),
+                        dbc.Col(dcc.Graph(figure=figr, id="sk3d-graph"), width=4),
+                    ],
+                    align="center",
+                ),
+                dbc.Row([html.Button("Play/Pause Animations", id="startAnimationButton")]),
+            ]
+        )
 
 
 @server.route("/static/<path:path>")
@@ -112,7 +141,6 @@ app.clientside_callback(
     """
     function startVideos(n_clicks) {
         if (n_clicks > 0) {
-        
             console.log(dash_clientside.callback_context);
             var originalVideo = document.getElementById('originalvideo');
             var processedVideo = document.getElementById('processedvideo');
@@ -129,8 +157,7 @@ app.clientside_callback(
         return false;
     }
     """,
-    Output("originalvideo", "autoPlay"),
-    Output("processedvideo", "autoPlay"),
+    Output("placeholder", "hidden"),
     Input("startAnimationButton", "n_clicks"),
 )
 
@@ -143,11 +170,26 @@ def parse_contents(contents, filename):
             print(f"Writing file {filename}")
             with open(f"static/{filename}", "wb") as f:
                 f.write(decoded)
-            # save video to static folder
+            print("spinning up process.")
             # spin up process to operate on static folder and save outputs to static folder
+            subprocess.run(["python", "../mirage/core.py", f"static/{filename}", "-o", "static/"])
             return html.Div(f"File: {filename} uploaded! When processing is done, click nav button.")
     except Exception as e:
         print(e)
+
+
+app.clientside_callback(
+    """
+    function(value) {
+        if (value != null && value.length > 0) {
+            window.location.href = value;
+        }
+    }
+    return true;
+    """,
+    Output("placeholder2", "hidden"),
+    Input("data-selection", "value"),
+)
 
 
 if __name__ == "__main__":
